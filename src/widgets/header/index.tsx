@@ -42,9 +42,11 @@ export function Header() {
               if (fallback) (fallback as HTMLElement).style.display = 'flex'
             }}
           />
-          <span className="logo-fallback bg-gradient-to-r from-accent-violet to-accent-blue bg-clip-text text-transparent flex items-center gap-2" style={{ display: 'none' }}>
-            <Gem className="w-6 h-6 text-accent-violet shrink-0" />
+          <span className="bg-gradient-to-r from-accent-violet to-accent-blue bg-clip-text text-transparent">
             Dreams
+          </span>
+          <span className="logo-fallback flex items-center shrink-0" style={{ display: 'none' }}>
+            <Gem className="w-6 h-6 text-accent-violet shrink-0" />
           </span>
         </Link>
 
