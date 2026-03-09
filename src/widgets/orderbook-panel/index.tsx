@@ -21,6 +21,7 @@ function BookContent({
   tokenId: string
   onPriceClick?: (price: number) => void
 }) {
+  const formatCents = (price: number) => `${(price * 100).toFixed(1)}¢`
   const { data: restBook, isLoading, isError, refetch } = useQuery({
     queryKey: ['orderbook', tokenId],
     queryFn: () => fetchOrderBook(tokenId),
@@ -29,16 +30,29 @@ function BookContent({
   })
   const { book: wsBook } = useMarketWs(tokenId)
 
-  const book = wsBook ?? restBook
+  // Prefer REST for full depth; WebSocket often sends fewer levels. Use WS only for lastTradePrice.
+  const restAsks = restBook?.asks ?? []
+  const restBids = restBook?.bids ?? []
+  const wsAsks = wsBook?.asks ?? []
+  const wsBids = wsBook?.bids ?? []
+  const useRestForDepth = restAsks.length + restBids.length >= wsAsks.length + wsBids.length
+  const rawAsks = useRestForDepth ? restAsks : wsAsks
+  const rawBids = useRestForDepth ? restBids : wsBids
+  const lastTradePrice = wsBook?.lastTradePrice ?? (restBook as { last_trade_price?: string } | undefined)?.last_trade_price
 
-  const asks = [...(book?.asks ?? [])].slice(0, 15)
-  const bids = [...(book?.bids ?? [])].slice(0, 15)
+  // Asks: best (lowest) first — ascending
+  const asks = [...rawAsks]
+    .sort((a, b) => Number(a.price) - Number(b.price))
+    .slice(0, 50)
+  // Bids: best (highest) first — descending
+  const bids = [...rawBids]
+    .sort((a, b) => Number(b.price) - Number(a.price))
+    .slice(0, 50)
   const bestAsk = asks[0]?.price
   const bestBid = bids[0]?.price
   const spreadAbs = bestAsk && bestBid ? Number(bestAsk) - Number(bestBid) : 0
   const spreadPct = bestAsk && bestBid ? (spreadAbs / Number(bestBid)) * 100 : 0
-  const lastTradePrice = wsBook?.lastTradePrice ?? (book as { last_trade_price?: string } | undefined)?.last_trade_price
-  const isEmpty = !book?.asks?.length && !book?.bids?.length
+  const isEmpty = rawAsks.length === 0 && rawBids.length === 0
   const maxSize = Math.max(...[...asks, ...bids].map((l) => Number(l.size)), 1)
 
   if (isLoading) {
@@ -70,7 +84,7 @@ function BookContent({
   return (
     <div className="flex-1 overflow-y-auto scrollbar-hover font-mono text-small">
       <div className="grid grid-cols-[1fr_1fr_1fr_3rem] gap-x-2 gap-y-0 px-3 py-2 bg-bg-tertiary/50 text-text-muted border-b border-white/10">
-        <span>Price</span>
+        <span>Price (¢)</span>
         <span className="text-right">Size</span>
         <span className="text-right">Total</span>
         <span />
@@ -96,7 +110,7 @@ function BookContent({
               onKeyDown={(e) => e.key === 'Enter' && onPriceClick?.(price)}
               title={`${level.price} × ${level.size} = $${total.toFixed(2)}`}
             >
-              <span>{level.price}</span>
+              <span>{formatCents(price)}</span>
               <span className="text-right text-text-body">{Number(level.size).toLocaleString()}</span>
               <span className="text-right text-text-muted">${total.toFixed(2)}</span>
               <div className="h-1.5 rounded bg-status-error/30 min-w-0 overflow-hidden">
@@ -108,7 +122,7 @@ function BookContent({
       </div>
       <div className="px-3 py-2 bg-bg-tertiary text-center border-y border-white/10 text-tiny">
         <span className="text-text-muted">Spread </span>
-        <span className="text-text-primary">{spreadAbs.toFixed(3)}</span>
+        <span className="text-text-primary">{(spreadAbs * 100).toFixed(1)}¢</span>
         <span className="text-text-muted"> ({spreadPct.toFixed(1)}%)</span>
         {lastTradePrice != null && (
           <>
@@ -138,7 +152,7 @@ function BookContent({
               onKeyDown={(e) => e.key === 'Enter' && onPriceClick?.(price)}
               title={`${level.price} × ${level.size} = $${total.toFixed(2)}`}
             >
-              <span>{level.price}</span>
+              <span>{formatCents(price)}</span>
               <span className="text-right text-text-body">{Number(level.size).toLocaleString()}</span>
               <span className="text-right text-text-muted">${total.toFixed(2)}</span>
               <div className="h-1.5 rounded bg-status-success/30 min-w-0 overflow-hidden">

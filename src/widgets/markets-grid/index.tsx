@@ -6,6 +6,18 @@ import type { PolymarketEvent } from '@/entities/market/types'
 
 const PAGE_SIZE = 24
 
+/** Stable date window for "Ending Soon" - rounded to start of hour to avoid refetch spam */
+function getEndingSoonWindow(): { min: string; max: string } | null {
+  const hourMs = 60 * 60 * 1000
+  const dayMs = 24 * hourMs
+  const now = Date.now()
+  const startOfHour = new Date(Math.floor(now / hourMs) * hourMs)
+  return {
+    min: startOfHour.toISOString(),
+    max: new Date(startOfHour.getTime() + 7 * dayMs).toISOString(),
+  }
+}
+
 function parsePrices(outcomePrices?: string | null): { yes: number; no: number } {
   if (!outcomePrices) return { yes: 0.5, no: 0.5 }
   try {
@@ -98,6 +110,16 @@ export function MarketsGrid({
   })
   const featuredIds = useMemo(() => featuredEvents.map((e) => e.id), [featuredEvents])
 
+  const endingSoonWindow = useMemo(() => (endingSoon ? getEndingSoonWindow() : null), [endingSoon])
+
+  const apiActive = useMemo(() => {
+    if (status === 'Resolved') return undefined
+    if (status === 'Active' || liveNow) return true
+    return undefined
+  }, [status, liveNow])
+
+  const apiClosed = status === 'Resolved' ? true : undefined
+
   const {
     data,
     isLoading,
@@ -113,11 +135,11 @@ export function MarketsGrid({
       {
         tag_slug: categorySlug,
         liquidity_min: liquidityMin,
-        active: liveNow ? true : undefined,
+        active: apiActive,
         order: sort,
-        end_date_min: endingSoon ? new Date().toISOString() : undefined,
-        end_date_max: endingSoon ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : undefined,
-        closed: status === 'Resolved' ? true : undefined,
+        end_date_min: endingSoonWindow?.min,
+        end_date_max: endingSoonWindow?.max,
+        closed: apiClosed,
       },
     ],
     queryFn: ({ pageParam = 0 }) =>
@@ -125,13 +147,13 @@ export function MarketsGrid({
         limit: PAGE_SIZE,
         offset: pageParam,
         tag_slug: categorySlug,
-        active: liveNow ? true : undefined,
+        active: apiActive,
         liquidity_min: liquidityMin,
         order: sort,
         ascending: sort === 'end_date_asc',
-        end_date_min: endingSoon ? new Date().toISOString() : undefined,
-        end_date_max: endingSoon ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() : undefined,
-        closed: status === 'Resolved' ? true : undefined,
+        end_date_min: endingSoonWindow?.min,
+        end_date_max: endingSoonWindow?.max,
+        closed: apiClosed,
       }),
     getNextPageParam: (lastPage, allPages) => {
       if (lastPage.length < PAGE_SIZE) return undefined

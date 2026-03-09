@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, ExternalLink } from 'lucide-react'
 import { useAccount, useBalance, useChainId, usePublicClient, useSendTransaction, useSwitchChain } from 'wagmi'
+import { useQueryClient } from '@tanstack/react-query'
 import { usePolymarketProxy } from '@/shared/hooks/use-polymarket-proxy'
 import { getBridgeCurrencies, getBridgeQuote, type BridgeCurrency, type BridgeQuoteStep } from '@/shared/api/onboard'
 
@@ -20,6 +21,7 @@ export function DepositModal({ onClose }: DepositModalProps) {
   const publicClient = usePublicClient()
   const { switchChainAsync } = useSwitchChain()
   const { sendTransactionAsync } = useSendTransaction()
+  const queryClient = useQueryClient()
   const { proxy, refetch: refetchProxy, isLoading: proxyLoading } = usePolymarketProxy(address ?? undefined)
   const [platform, setPlatform] = useState<string>(PLATFORMS[0].id)
   const [mode, setMode] = useState<'receive' | 'spend'>('receive')
@@ -168,6 +170,9 @@ export function DepositModal({ onClose }: DepositModalProps) {
       setSuccess(true)
       setQuote(null)
       setDepositStep(null)
+      queryClient.invalidateQueries({ queryKey: ['positions'] })
+      queryClient.invalidateQueries({ queryKey: ['positions', 'balance', proxy] })
+      queryClient.invalidateQueries({ queryKey: ['polymarket-proxy', address?.toLowerCase()] })
       setTimeout(onClose, 2000)
     } catch (e) {
       setDepositStep(null)

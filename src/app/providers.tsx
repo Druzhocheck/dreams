@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createConfig, http, WagmiProvider } from 'wagmi'
+import { injected } from 'wagmi/connectors'
 import { avalanche, polygon, gnosis } from 'wagmi/chains'
 import type { ReactNode } from 'react'
 import { BridgeModalsProvider, useBridgeModals } from '@/shared/context/bridge-modals'
@@ -15,6 +16,7 @@ const queryClient = new QueryClient({
 
 const config = createConfig({
   chains: [avalanche, polygon, gnosis],
+  connectors: [injected()],
   transports: {
     [avalanche.id]: http(),
     [polygon.id]: http(),

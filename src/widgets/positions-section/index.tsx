@@ -20,12 +20,16 @@ export function PositionsSection() {
     queryKey: ['positions', 'open', user],
     queryFn: () => fetchPositions({ user: user!, limit: 100 }),
     enabled: !!user && filter !== 'closed',
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   })
 
   const { data: closedPositions = [], isLoading: closedLoading } = useQuery({
     queryKey: ['positions', 'closed', user],
     queryFn: () => fetchClosedPositions({ user: user!, limit: 100 }),
     enabled: !!user && filter !== 'open',
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   })
 
   const positions: DataPosition[] = filter === 'open' ? openPositions : filter === 'closed' ? closedPositions : [...openPositions, ...closedPositions]

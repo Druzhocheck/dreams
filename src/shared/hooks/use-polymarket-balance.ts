@@ -25,6 +25,8 @@ export function usePolymarketBalance(proxy: string | null | undefined) {
     queryKey: ['positions', 'balance', proxy],
     queryFn: () => fetchPositions({ user: proxy!, limit: 200 }),
     enabled: !!proxy?.startsWith?.('0x'),
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: true,
   })
 
   const cash = rawUsdc != null ? Number(formatUnits(rawUsdc, 6)) : 0

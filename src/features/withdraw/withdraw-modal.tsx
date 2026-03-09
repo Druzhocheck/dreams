@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { X, Copy, Check, ExternalLink } from 'lucide-react'
 import { useAccount, useBalance } from 'wagmi'
+import { useQueryClient } from '@tanstack/react-query'
 import { useEnsureNetwork } from '@/shared/hooks/use-ensure-network'
 import { usePolymarketProxy } from '@/shared/hooks/use-polymarket-proxy'
 import { usePolymarketBalance } from '@/shared/hooks/use-polymarket-balance'
@@ -66,6 +67,7 @@ const WITHDRAW_PLATFORMS = [{ id: 'polymarket', name: 'Polymarket' }] as const
 
 export function WithdrawModal({ platformName: _platformName, onClose }: WithdrawModalProps) {
   const { address, isConnected } = useAccount()
+  const queryClient = useQueryClient()
   const { ensureNetwork } = useEnsureNetwork()
   const { proxy } = usePolymarketProxy(address ?? undefined)
   const { cash: proxyCash } = usePolymarketBalance(proxy)
@@ -199,6 +201,8 @@ export function WithdrawModal({ platformName: _platformName, onClose }: Withdraw
       }
       setHistory((prev) => [item, ...prev].slice(0, 12))
       setWithdrawStep(null)
+      queryClient.invalidateQueries({ queryKey: ['positions'] })
+      queryClient.invalidateQueries({ queryKey: ['positions', 'balance', proxy] })
       setTimeout(onClose, 3000)
     } catch (e) {
       setWithdrawStep(null)
@@ -241,6 +245,9 @@ export function WithdrawModal({ platformName: _platformName, onClose }: Withdraw
           </select>
           <p className="text-tiny text-text-muted mt-1">
             Withdraw sends from your Polymarket (proxy) balance to the bridge. Requires POL for gas.
+          </p>
+          <p className="text-tiny text-status-warning mt-1">
+            If funds get stuck on the bridge (not arriving at recipient), try smaller amounts. The bridge swaps USDC.e via Uniswap — pool liquidity may be limited. Check status below.
           </p>
         </div>
 
