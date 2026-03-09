@@ -14,6 +14,8 @@ app.use(express.json())
 const PORT = Number(process.env.PORT || 3001)
 const CLOB_HOST = (process.env.CLOB_HOST || 'https://clob.polymarket.com').replace(/\/$/, '')
 const GAMMA_HOST = (process.env.GAMMA_HOST || 'https://gamma-api.polymarket.com').replace(/\/$/, '')
+const DATA_HOST = (process.env.DATA_HOST || 'https://data-api.polymarket.com').replace(/\/$/, '')
+const BRIDGE_HOST = (process.env.BRIDGE_HOST || 'https://bridge.polymarket.com').replace(/\/$/, '')
 const RELAYER_URL = String(process.env.RELAYER_URL || '')
 const BUILDER_API_KEY = String(process.env.BUILDER_API_KEY || '')
 const BUILDER_SECRET = String(process.env.BUILDER_SECRET || '')
@@ -192,6 +194,27 @@ async function relayFetch(path, init = {}) {
 app.get('/health', (_req, res) => {
   res.json({ ok: true })
 })
+
+// Proxy for Polymarket APIs (avoids CORS from frontend)
+async function proxyTo(baseUrl, req, res) {
+  const subpath = (req.path || req.url || '').replace(/^\/+/, '')
+  const qs = req.originalUrl?.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : ''
+  const url = `${baseUrl}/${subpath}${qs}`
+  try {
+    const init = { method: req.method, headers: { 'Content-Type': 'application/json' } }
+    if (req.method !== 'GET' && req.method !== 'HEAD' && req.body && Object.keys(req.body || {}).length) {
+      init.body = JSON.stringify(req.body)
+    }
+    const r = await fetch(url, init)
+    const text = await r.text()
+    res.status(r.status).set('Content-Type', r.headers.get('Content-Type') || 'application/json').send(text)
+  } catch (e) {
+    res.status(502).json({ error: e instanceof Error ? e.message : 'Proxy failed' })
+  }
+}
+app.use('/proxy/gamma', (req, res) => proxyTo(GAMMA_HOST, req, res))
+app.use('/proxy/data', (req, res) => proxyTo(DATA_HOST, req, res))
+app.use('/proxy/bridge', (req, res) => proxyTo(BRIDGE_HOST, req, res))
 
 app.get('/onboard/relayer-config', (_req, res) => {
   const canDeployProxy = !!(RELAYER_URL && BUILDER_API_KEY && BUILDER_SECRET && BUILDER_PASSPHRASE)

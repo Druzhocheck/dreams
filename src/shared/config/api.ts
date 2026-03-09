@@ -1,9 +1,13 @@
 const dev = typeof import.meta !== 'undefined' && import.meta.env?.DEV
-export const GAMMA_API = dev ? '/api/gamma' : 'https://gamma-api.polymarket.com'
-// Use CLOB directly so /book and other endpoints work (proxy can return 404 in some setups).
+/** Backend base for proxy (gamma/data/bridge). Derive from VITE_ONBOARD_API when set. */
+const proxyBase =
+  typeof import.meta !== 'undefined' && import.meta.env?.VITE_ONBOARD_API?.trim?.()
+    ? String(import.meta.env.VITE_ONBOARD_API).replace(/\/onboard\/?$/, '')
+    : ''
+export const GAMMA_API = dev ? '/api/gamma' : proxyBase ? `${proxyBase}/proxy/gamma` : 'https://gamma-api.polymarket.com'
 export const CLOB_API = 'https://clob.polymarket.com'
-export const DATA_API = dev ? '/api/data' : 'https://data-api.polymarket.com'
-export const BRIDGE_API = dev ? '/api/bridge' : 'https://bridge.polymarket.com'
+export const DATA_API = dev ? '/api/data' : proxyBase ? `${proxyBase}/proxy/data` : 'https://data-api.polymarket.com'
+export const BRIDGE_API = dev ? '/api/bridge' : proxyBase ? `${proxyBase}/proxy/bridge` : 'https://bridge.polymarket.com'
 export const WS_MARKET = 'wss://ws-subscriptions-clob.polymarket.com/ws/market'
 
 export const POLYGON_CHAIN_ID = 137
