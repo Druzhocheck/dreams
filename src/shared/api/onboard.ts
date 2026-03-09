@@ -1,6 +1,8 @@
 import { logger } from '@/shared/lib/logger'
 
-const ONBOARD_API = '/api/onboard'
+/** Backend base for onboard API. Use VITE_ONBOARD_API in prod (e.g. https://your-backend.railway.app/onboard). */
+export const ONBOARD_API =
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ONBOARD_API?.trim?.()) || '/api/onboard'
 
 export interface OnboardRequirements {
   linked: boolean

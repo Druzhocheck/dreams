@@ -5,7 +5,7 @@ import { polygon } from 'viem/chains'
 import { RelayClient, RelayerTxType } from '@polymarket/builder-relayer-client'
 import { BuilderConfig } from '@polymarket/builder-signing-sdk'
 import { buildActionAuthMessage } from '@/shared/lib/request-auth'
-import { getDerivedSafeAddress } from '@/shared/api/onboard'
+import { getDerivedSafeAddress, ONBOARD_API } from '@/shared/api/onboard'
 import { logger } from '@/shared/lib/logger'
 
 const SAFE_ALREADY_DEPLOYED = 'safe already deployed!'
@@ -14,7 +14,11 @@ function walletClientForPolygon<T extends { chain?: { id: number } }>(client: T)
   return { ...client, chain: polygon } as T
 }
 
-const ONBOARD_API = '/api/onboard'
+/** Full URL for builder callback — backend must be reachable at this URL. */
+function getBuilderSignUrl() {
+  const base = ONBOARD_API.startsWith('http') ? ONBOARD_API : `${typeof window !== 'undefined' ? window.location.origin : ''}${ONBOARD_API}`
+  return `${base}/builder-sign`
+}
 
 export function useDeployProxy(eoa: string | undefined) {
   const { data: walletClient } = useWalletClient()
@@ -42,10 +46,7 @@ export function useDeployProxy(eoa: string | undefined) {
     setDeploying(true)
     setDeployError(null)
     try {
-      const builderSignUrl =
-        typeof window !== 'undefined' && window.location?.origin
-          ? `${window.location.origin}${ONBOARD_API}/builder-sign`
-          : `${ONBOARD_API}/builder-sign`
+      const builderSignUrl = getBuilderSignUrl()
       logger.info('deployProxy: start', { eoa, builderSignUrl }, { component: 'deploy-proxy', function: 'deploy' })
       const builderConfig = new BuilderConfig({
         remoteBuilderConfig: { url: builderSignUrl },
