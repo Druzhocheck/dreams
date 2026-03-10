@@ -105,20 +105,24 @@ export function MarketsGrid({
   const loadMoreRef = useRef<HTMLDivElement>(null)
 
   const { data: featuredEvents = [] } = useQuery({
-    queryKey: ['events', 'featured', { limit: 3, featured: true, active: true }],
-    queryFn: () => fetchEvents({ limit: 3, featured: true, active: true }),
+    queryKey: ['events', 'featured', { limit: 3, featured: true, active: true, closed: false }],
+    queryFn: () => fetchEvents({ limit: 3, featured: true, active: true, closed: false }),
   })
   const featuredIds = useMemo(() => featuredEvents.map((e) => e.id), [featuredEvents])
 
   const endingSoonWindow = useMemo(() => (endingSoon ? getEndingSoonWindow() : null), [endingSoon])
 
   const apiActive = useMemo(() => {
-    if (status === 'Resolved') return undefined
+    if (status === 'Resolved') return false
     if (status === 'Active' || liveNow) return true
     return undefined
   }, [status, liveNow])
 
-  const apiClosed = status === 'Resolved' ? true : undefined
+  const apiClosed = useMemo(() => {
+    if (status === 'Resolved') return true
+    if (status === 'Active' || liveNow) return false
+    return undefined
+  }, [status, liveNow])
 
   const {
     data,
@@ -132,14 +136,15 @@ export function MarketsGrid({
     queryKey: [
       'events',
       'infinite',
+      status,
       {
         tag_slug: categorySlug,
         liquidity_min: liquidityMin,
         active: apiActive,
+        closed: apiClosed,
         order: sort,
         end_date_min: endingSoonWindow?.min,
         end_date_max: endingSoonWindow?.max,
-        closed: apiClosed,
       },
     ],
     queryFn: ({ pageParam = 0 }) =>
@@ -160,7 +165,7 @@ export function MarketsGrid({
       return allPages.length * PAGE_SIZE
     },
     initialPageParam: 0,
-    staleTime: 30_000,
+    staleTime: 15_000,
     refetchOnWindowFocus: false,
   })
 
@@ -185,6 +190,26 @@ export function MarketsGrid({
 
   const filtered = useMemo(() => {
     let list = events.filter((e) => !featuredIds.includes(e.id))
+    const now = Date.now()
+    if (status === 'Active' || liveNow) {
+      list = list.filter((e) => {
+        if (e.closed === true) return false
+        const m = e.markets?.[0]
+        if (m?.closed === true) return false
+        const endDate = e.endDate ?? m?.endDate
+        if (endDate && new Date(endDate).getTime() < now) return false
+        return true
+      })
+    } else if (status === 'Resolved') {
+      list = list.filter((e) => {
+        if (e.closed === true) return true
+        const m = e.markets?.[0]
+        if (m?.closed === true) return true
+        const endDate = e.endDate ?? m?.endDate
+        if (endDate && new Date(endDate).getTime() < now) return true
+        return false
+      })
+    }
     const q = (searchQuery ?? '').toLowerCase().trim()
     if (q) {
       list = list.filter(
@@ -203,8 +228,26 @@ export function MarketsGrid({
     if (hidePolitics) {
       list = list.filter((e) => !e.tags?.some((t) => (t.slug ?? t.label ?? '').toLowerCase().includes('politic')))
     }
+    // Client-side sort (Gamma API returns 422 for start_date/end_date)
+    if (sort === 'end_date_asc') {
+      list = [...list].sort((a, b) => {
+        const da = new Date(a.endDate ?? a.markets?.[0]?.endDate ?? 0).getTime()
+        const db = new Date(b.endDate ?? b.markets?.[0]?.endDate ?? 0).getTime()
+        return da - db
+      })
+    } else if (sort === 'newest') {
+      list = [...list].sort((a, b) => {
+        const da = new Date(a.startDate ?? 0).getTime()
+        const db = new Date(b.startDate ?? 0).getTime()
+        return db - da
+      })
+    } else if (sort === 'liquidity') {
+      list = [...list].sort((a, b) => (b.liquidityNum ?? 0) - (a.liquidityNum ?? 0))
+    } else {
+      list = [...list].sort((a, b) => (b.volumeNum ?? 0) - (a.volumeNum ?? 0))
+    }
     return list
-  }, [events, featuredIds, searchQuery, hideSports, hideCrypto, hidePolitics])
+  }, [events, featuredIds, searchQuery, hideSports, hideCrypto, hidePolitics, status, liveNow, sort])
 
   if (isLoading) {
     return (

@@ -209,7 +209,7 @@ export function MarketsPage() {
           )}
         </div>
 
-        <FeaturedMarkets />
+        {status !== 'Resolved' && <FeaturedMarkets />}
         <MarketsGrid
           categorySlug={categorySlug}
           liquidityMin={liquidityMin}

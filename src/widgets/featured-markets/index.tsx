@@ -70,11 +70,21 @@ interface FeaturedMarketsProps {
   excludeFromGrid?: boolean
 }
 
+function isEventActive(e: PolymarketEvent): boolean {
+  if (e.closed === true) return false
+  const m = e.markets?.[0]
+  if (m?.closed === true) return false
+  const endDate = e.endDate ?? m?.endDate
+  if (endDate && new Date(endDate).getTime() < Date.now()) return false
+  return true
+}
+
 export function FeaturedMarkets(_props: FeaturedMarketsProps) {
-  const { data: events = [], isLoading } = useQuery({
-    queryKey: ['events', 'featured', { limit: 3, featured: true, active: true }],
-    queryFn: () => fetchEvents({ limit: 3, featured: true, active: true }),
+  const { data: rawEvents = [], isLoading } = useQuery({
+    queryKey: ['events', 'featured', { limit: 3, featured: true, active: true, closed: false }],
+    queryFn: () => fetchEvents({ limit: 3, featured: true, active: true, closed: false }),
   })
+  const events = rawEvents.filter(isEventActive).slice(0, 3)
 
   if (isLoading) {
     return (

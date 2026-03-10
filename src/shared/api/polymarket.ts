@@ -79,14 +79,14 @@ export async function fetchEvents(params: {
   search.set('offset', String(params.offset ?? 0))
   const order = params.order ?? defaultOrder
   const asc = params.ascending ?? defaultAsc
-  const endingSoon = order === 'end_date_asc'
-  const gammaOrder = order === 'newest' ? 'volume' : endingSoon ? 'volume' : order
-  const gammaAsc = order === 'newest' ? false : endingSoon ? false : asc
+  // Gamma API returns 422 for start_date and end_date. Use volume/liquidity only.
+  const gammaOrder = order === 'newest' || order === 'end_date_asc' ? 'volume' : order
+  const gammaAsc = order === 'liquidity' ? asc : false
   search.set('order', gammaOrder)
   search.set('ascending', String(gammaAsc))
   if (params.tag_slug) search.set('tag_slug', params.tag_slug)
   if (params.active !== undefined) search.set('active', String(params.active))
-  if (params.closed === true) search.set('closed', 'true')
+  if (params.closed !== undefined) search.set('closed', String(params.closed))
   if (params.liquidity_min != null) search.set('liquidity_min', String(params.liquidity_min))
   if (params.volume_min != null) search.set('volume_min', String(params.volume_min))
   if (params.end_date_min != null) search.set('end_date_min', params.end_date_min)
