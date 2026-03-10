@@ -29,12 +29,12 @@ export function Header() {
         {/* Logo */}
         <Link
           to="/"
-          className="flex items-center gap-2 shrink-0 text-text-primary font-bold text-lg tracking-tight"
+          className="flex items-center gap-0 shrink-0 text-text-primary font-bold text-lg tracking-tight"
         >
           <img
             src="/img/logo.png"
             alt="Dreams"
-            className="h-8 w-auto object-contain"
+            className="h-[84px] w-auto object-contain block -mr-2"
             onError={(e) => {
               const target = e.target as HTMLImageElement
               target.style.display = 'none'
@@ -42,7 +42,7 @@ export function Header() {
               if (fallback) (fallback as HTMLElement).style.display = 'flex'
             }}
           />
-          <span className="bg-gradient-to-r from-accent-violet to-accent-blue bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-accent-violet to-accent-blue bg-clip-text text-transparent -ml-2">
             Dreams
           </span>
           <span className="logo-fallback flex items-center shrink-0" style={{ display: 'none' }}>
