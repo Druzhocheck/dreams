@@ -1,10 +1,10 @@
+import { useQuery } from '@tanstack/react-query'
 import type { PolymarketEvent, PolymarketMarket } from '@/entities/market/types'
 import type { OutcomeToken } from '@/shared/lib/market-utils'
 import { getMarketOutcomeDisplayName, parseOutcomePrices } from '@/shared/lib/market-utils'
+import { fetchOrderBook } from '@/shared/api/polymarket'
 import { cn } from '@/shared/lib/cn'
-import { logger } from '@/shared/lib/logger'
 
-const fallbackLogged = new Set<string>()
 
 interface OutcomesPanelProps {
   event: PolymarketEvent
@@ -43,20 +43,13 @@ function getFallbackFromMarket(market: PolymarketMarket, outcome: string): numbe
   return 0.5
 }
 
-function useOutcomePrice(tokenId: string | undefined, market: PolymarketMarket, outcome: string): number {
-  const fallback = getFallbackFromMarket(market, outcome)
-  // Keep outcome list stable and fast: use market-provided probabilities only.
-  // Orderbook prices are shown in the dedicated Orderbook panel for selected token.
-  const key = `${tokenId ?? 'none'}:${outcome}`
-  if (!fallbackLogged.has(key)) {
-    fallbackLogged.add(key)
-    logger.info('OutcomesPanel: market probability used', {
-      tokenId: tokenId ? `${tokenId.slice(0, 14)}…` : 'none',
-      outcome,
-      probability: fallback,
-    }, { component: 'outcomes-panel', function: 'useOutcomePrice' })
-  }
-  return fallback
+/** Best ask = min of asks = price you pay when buying. */
+function getBestAsk(asks: { price: string }[]): number | null {
+  if (!asks?.length) return null
+  const prices = asks.map((l) => Number(l.price)).filter(Number.isFinite)
+  if (prices.length === 0) return null
+  const best = Math.min(...prices)
+  return best > 0 && best <= 1 ? best : null
 }
 
 function formatPct(p: number): string {
@@ -216,8 +209,20 @@ function OutcomeRowWithPrices({
   onSelectOutcome: (index: number) => void
 }) {
   const title = getMarketOutcomeDisplayName(market) || market.question || `Outcome ${yesIndex / 2 + 1}`
-  const yesPrice = useOutcomePrice(yesToken.tokenId, yesToken.market, 'Yes')
-  const noPrice = useOutcomePrice(noToken.tokenId, noToken.market, 'No')
+  const { data: yesBook } = useQuery({
+    queryKey: ['orderbook', yesToken.tokenId],
+    queryFn: () => fetchOrderBook(yesToken.tokenId!),
+    enabled: !!yesToken.tokenId,
+  })
+  const { data: noBook } = useQuery({
+    queryKey: ['orderbook', noToken.tokenId],
+    queryFn: () => fetchOrderBook(noToken.tokenId!),
+    enabled: !!noToken.tokenId,
+  })
+  const yesBestAsk = getBestAsk(yesBook?.asks ?? [])
+  const noBestAsk = getBestAsk(noBook?.asks ?? [])
+  const yesPrice = yesBestAsk ?? getFallbackFromMarket(market, 'Yes')
+  const noPrice = noBestAsk ?? getFallbackFromMarket(market, 'No')
 
   return (
     <OutcomeRow
